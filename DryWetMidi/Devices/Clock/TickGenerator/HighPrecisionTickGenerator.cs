@@ -32,7 +32,7 @@ namespace Melanchall.DryWetMidi.Devices
         private bool _disposed = false;
 
         private uint _resolution;
-        private MidiTimerWinApi.TimeProc _tickCallback;
+        private MidiTimerApi.TimeProc _tickCallback;
         private uint _timerId = NoTimerId;
 
         #endregion
@@ -67,14 +67,14 @@ namespace Melanchall.DryWetMidi.Devices
 
             var intervalInMilliseconds = (uint)interval.TotalMilliseconds;
 
-            var timeCaps = default(MidiTimerWinApi.TIMECAPS);
-            ProcessMmResult(MidiTimerWinApi.timeGetDevCaps(ref timeCaps, (uint)Marshal.SizeOf(timeCaps)));
+            var timeCaps = default(MidiTimerApi.TIMECAPS);
+            ProcessMmResult(MidiTimerApi.timeGetDevCaps(ref timeCaps, (uint)Marshal.SizeOf(timeCaps)));
 
             _resolution = Math.Min(Math.Max(timeCaps.wPeriodMin, intervalInMilliseconds), timeCaps.wPeriodMax);
             _tickCallback = OnTick;
 
-            ProcessMmResult(MidiTimerWinApi.timeBeginPeriod(_resolution));
-            _timerId = MidiTimerWinApi.timeSetEvent(intervalInMilliseconds, _resolution, _tickCallback, IntPtr.Zero, MidiTimerWinApi.TIME_PERIODIC);
+            ProcessMmResult(MidiTimerApi.timeBeginPeriod(_resolution));
+            _timerId = MidiTimerApi.timeSetEvent(intervalInMilliseconds, _resolution, _tickCallback, IntPtr.Zero, MidiTimerApi.TIME_PERIODIC);
             if (_timerId == NoTimerId)
             {
                 var errorCode = Marshal.GetLastWin32Error();
@@ -84,8 +84,8 @@ namespace Melanchall.DryWetMidi.Devices
 
         protected override void Stop()
         {
-            MidiTimerWinApi.timeEndPeriod(_resolution);
-            MidiTimerWinApi.timeKillEvent(_timerId);
+            MidiTimerApi.timeEndPeriod(_resolution);
+            MidiTimerApi.timeKillEvent(_timerId);
         }
 
         #endregion

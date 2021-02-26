@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-namespace Melanchall.DryWetMidi.Devices
+namespace Melanchall.DryWetMidi.Devices.Platforms
 {
     internal static class MidiTimerWinApi
     {
