@@ -2,7 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace Melanchall.DryWetMidi.Devices
+namespace Melanchall.DryWetMidi.Devices.Platforms
 {
     internal static class MidiOutWinApi
     {
@@ -21,6 +21,34 @@ namespace Melanchall.DryWetMidi.Devices
             public ushort wNotes;
             public ushort wChannelMask;
             public uint dwSupport;
+
+            public static MIDIOUTCAPS FromCommon(MidiOutApi.MIDIOUTCAPS caps) =>
+                new MIDIOUTCAPS
+                {
+                    wMid = caps.wMid,
+                    wPid = caps.wPid,
+                    vDriverVersion = caps.vDriverVersion,
+                    szPname = caps.szPname,
+                    wTechnology = caps.wTechnology,
+                    wVoices = caps.wVoices,
+                    wNotes = caps.wNotes,
+                    wChannelMask = caps.wChannelMask,
+                    dwSupport = caps.dwSupport,
+                };
+
+            public MidiOutApi.MIDIOUTCAPS ToCommon() =>
+                new MidiOutApi.MIDIOUTCAPS
+                {
+                    wMid = this.wMid,
+                    wPid = this.wPid,
+                    vDriverVersion = this.vDriverVersion,
+                    szPname = this.szPname,
+                    wTechnology = this.wTechnology,
+                    wVoices = this.wVoices,
+                    wNotes = this.wNotes,
+                    wChannelMask = this.wChannelMask,
+                    dwSupport = this.dwSupport,
+                };
         }
 
         [Flags]
@@ -70,5 +98,24 @@ namespace Melanchall.DryWetMidi.Devices
         public static extern uint midiOutLongMsg(IntPtr hmo, IntPtr lpMidiOutHdr, int cbMidiOutHdr);
 
         #endregion
+
+        /// <summary>
+        /// Processes MMRESULT which is return value of winmm functions.
+        /// </summary>
+        /// <param name="mmResult">MMRESULT which is return value of winmm function.</param>
+        /// <exception cref="MidiDeviceException"><paramref name="mmResult"/> represents error code.</exception>
+        public static void ProcessMmResult(uint mmResult)
+        {
+            if (mmResult == MidiWinApi.MMSYSERR_NOERROR)
+                return;
+
+            var stringBuilder = new StringBuilder((int)MidiWinApi.MaxErrorLength);
+            var getErrorTextResult = midiOutGetErrorText(mmResult, stringBuilder, MidiWinApi.MaxErrorLength + 1);
+            if (getErrorTextResult != MidiWinApi.MMSYSERR_NOERROR)
+                throw new MidiDeviceException("Error occured during operation on device.");
+
+            var errorText = stringBuilder.ToString();
+            throw new MidiDeviceException(errorText);
+        }
     }
 }

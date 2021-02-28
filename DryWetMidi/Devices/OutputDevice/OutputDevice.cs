@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
 using Melanchall.DryWetMidi.Common;
 using Melanchall.DryWetMidi.Core;
 
@@ -34,9 +33,6 @@ namespace Melanchall.DryWetMidi.Devices
         #region Fields
 
         private readonly MidiEventToBytesConverter _midiEventToBytesConverter = new MidiEventToBytesConverter(ShortEventBufferSize);
-        private readonly BytesToMidiEventConverter _bytesToMidiEventConverter = new BytesToMidiEventConverter();
-
-        private MidiWinApi.MidiMessageCallback _callback;
 
         private readonly HashSet<IntPtr> _sysExHeadersPointers = new HashSet<IntPtr>();
 
@@ -121,7 +117,7 @@ namespace Melanchall.DryWetMidi.Devices
                     throw new InvalidOperationException("Device doesn't support volume control.");
 
                 var volume = default(uint);
-                ProcessMmResult(MidiOutWinApi.midiOutGetVolume(_handle, ref volume));
+                MidiOutApi.midiOutGetVolume(_handle, ref volume);
 
                 var leftVolume = volume.GetTail();
                 var rightVolume = volume.GetHead();
@@ -145,7 +141,7 @@ namespace Melanchall.DryWetMidi.Devices
                     throw new ArgumentException("Device doesn't support separate volume control for each channel.", nameof(value));
 
                 var volume = DataTypesUtilities.Combine(rightVolume, leftVolume);
-                ProcessMmResult(MidiOutWinApi.midiOutSetVolume(_handle, volume));
+                MidiOutApi.midiOutSetVolume(_handle, volume);
             }
         }
 
@@ -224,7 +220,7 @@ namespace Melanchall.DryWetMidi.Devices
         /// <returns>Number of output MIDI devices presented in the system.</returns>
         public static int GetDevicesCount()
         {
-            return (int)MidiOutWinApi.midiOutGetNumDevs();
+            return (int)MidiOutApi.midiOutGetNumDevs();
         }
 
         /// <summary>
@@ -280,25 +276,12 @@ namespace Melanchall.DryWetMidi.Devices
             return new OutputDevice(id);
         }
 
-        /// <summary>
-        /// Gets error description for the specified MMRESULT which is return value of winmm function.
-        /// </summary>
-        /// <param name="mmrError">MMRESULT which is return value of winmm function.</param>
-        /// <param name="pszText"><see cref="StringBuilder"/> to write error description to.</param>
-        /// <param name="cchText">Size of <paramref name="pszText"/> buffer.</param>
-        /// <returns>Return value of winmm function which gets error description.</returns>
-        protected override uint GetErrorText(uint mmrError, StringBuilder pszText, uint cchText)
-        {
-            return MidiOutWinApi.midiOutGetErrorText(mmrError, pszText, cchText);
-        }
-
         private void EnsureHandleIsCreated()
         {
             if (_handle != IntPtr.Zero)
                 return;
 
-            _callback = OnMessage;
-            ProcessMmResult(MidiOutWinApi.midiOutOpen(out _handle, Id, _callback, IntPtr.Zero, MidiWinApi.CallbackFunction));
+            MidiOutApi.midiOutOpen(out _handle, Id, OnMessage, IntPtr.Zero, MidiWinApi.CallbackFunction);
         }
 
         private void DestroyHandle()
@@ -306,13 +289,13 @@ namespace Melanchall.DryWetMidi.Devices
             if (_handle == IntPtr.Zero)
                 return;
 
-            MidiOutWinApi.midiOutClose(_handle);
+            MidiOutApi.midiOutClose(_handle);
         }
 
         private void SetDeviceInformation()
         {
-            var caps = default(MidiOutWinApi.MIDIOUTCAPS);
-            ProcessMmResult(MidiOutWinApi.midiOutGetDevCaps(new IntPtr(Id), ref caps, (uint)Marshal.SizeOf(caps)));
+            var caps = default(MidiOutApi.MIDIOUTCAPS);
+            MidiOutApi.midiOutGetDevCaps(new IntPtr(Id), ref caps);
 
             SetBasicDeviceInformation(caps.wMid, caps.wPid, caps.vDriverVersion, caps.szPname);
 
@@ -324,16 +307,16 @@ namespace Melanchall.DryWetMidi.Devices
                         where isChannelSupported == 1
                         select channel).ToArray();
 
-            var support = (MidiOutWinApi.MIDICAPS)caps.dwSupport;
-            SupportsPatchCaching = support.HasFlag(MidiOutWinApi.MIDICAPS.MIDICAPS_CACHE);
-            SupportsVolumeControl = support.HasFlag(MidiOutWinApi.MIDICAPS.MIDICAPS_VOLUME);
-            SupportsLeftRightVolumeControl = support.HasFlag(MidiOutWinApi.MIDICAPS.MIDICAPS_LRVOLUME);
+            var support = (MidiOutApi.MIDICAPS)caps.dwSupport;
+            SupportsPatchCaching = support.HasFlag(MidiOutApi.MIDICAPS.MIDICAPS_CACHE);
+            SupportsVolumeControl = support.HasFlag(MidiOutApi.MIDICAPS.MIDICAPS_VOLUME);
+            SupportsLeftRightVolumeControl = support.HasFlag(MidiOutApi.MIDICAPS.MIDICAPS_LRVOLUME);
         }
 
         private void SendShortEvent(MidiEvent midiEvent)
         {
             var message = PackShortEvent(midiEvent);
-            ProcessMmResult(MidiOutWinApi.midiOutShortMsg(_handle, (uint)message));
+            MidiOutApi.midiOutShortMsg(_handle, (uint)message);
         }
 
         private void SendSysExEvent(SysExEvent sysExEvent)
@@ -345,7 +328,7 @@ namespace Melanchall.DryWetMidi.Devices
             var headerPointer = PrepareSysExBuffer(data);
             _sysExHeadersPointers.Add(headerPointer);
 
-            ProcessMmResult(MidiOutWinApi.midiOutLongMsg(_handle, headerPointer, MidiWinApi.MidiHeaderSize));
+            MidiOutApi.midiOutLongMsg(_handle, headerPointer, MidiWinApi.MidiHeaderSize);
         }
 
         private int PackShortEvent(MidiEvent midiEvent)
@@ -410,7 +393,7 @@ namespace Melanchall.DryWetMidi.Devices
             var headerPointer = Marshal.AllocHGlobal(MidiWinApi.MidiHeaderSize);
             Marshal.StructureToPtr(header, headerPointer, false);
 
-            ProcessMmResult(MidiOutWinApi.midiOutPrepareHeader(_handle, headerPointer, MidiWinApi.MidiHeaderSize));
+            MidiOutApi.midiOutPrepareHeader(_handle, headerPointer, MidiWinApi.MidiHeaderSize);
 
             return headerPointer;
         }
@@ -420,7 +403,7 @@ namespace Melanchall.DryWetMidi.Devices
             if (headerPointer == IntPtr.Zero)
                 return;
 
-            MidiOutWinApi.midiOutUnprepareHeader(_handle, headerPointer, MidiWinApi.MidiHeaderSize);
+            MidiOutApi.midiOutUnprepareHeader(_handle, headerPointer, MidiWinApi.MidiHeaderSize);
 
             var header = (MidiWinApi.MIDIHDR)Marshal.PtrToStructure(headerPointer, typeof(MidiWinApi.MIDIHDR));
             Marshal.FreeHGlobal(header.lpData);
@@ -450,7 +433,6 @@ namespace Melanchall.DryWetMidi.Devices
             if (disposing)
             {
                 _midiEventToBytesConverter.Dispose();
-                _bytesToMidiEventConverter.Dispose();
             }
 
             DestroyHandle();
