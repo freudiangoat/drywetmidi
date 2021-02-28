@@ -750,7 +750,8 @@ namespace Melanchall.DryWetMidi.Devices
                         BytesToMidiEventConverter midiEventReader;
                         if (!_midiEventReaders.TryGetValue(source, out midiEventReader))
                         {
-                            _midiEventReaders[source] = new BytesToMidiEventConverter(2);
+                            midiEventReader = new BytesToMidiEventConverter(2);
+                            _midiEventReaders[source] = midiEventReader;
                         }
 
                         if (_callbacks.TryGetValue(new IntPtr(rawEvent.Dest.Port), out callbacks))
