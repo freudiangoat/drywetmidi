@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 using Melanchall.DryWetMidi.Core;
@@ -32,6 +33,8 @@ namespace Melanchall.DryWetMidi.Devices
             internal OnInvalidShortEventReceived OnInvalidShortEventReceived;
             internal OnInvalidSysExEventReceived OnInvalidSysExEventReceived;
         }
+
+        private static IDictionary<int, MidiWinApi.MidiMessageCallback> _callbacks = new Dictionary<int, MidiWinApi.MidiMessageCallback>();
 
         #endregion
 
@@ -77,7 +80,11 @@ namespace Melanchall.DryWetMidi.Devices
         {
             var midiIn = default(IntPtr);
             PlatformUtils.HandleByPlatform(
-                () => MidiInWinApi.ProcessMmResult(MidiInWinApi.midiInOpen(out midiIn, uDeviceID, MidiInWinApi.GetMessageCallback(callbacks), IntPtr.Zero, MidiWinApi.CallbackFunction)),
+                () =>
+                {
+                    _callbacks[uDeviceID] = MidiInWinApi.GetMessageCallback(callbacks);
+                    MidiInWinApi.ProcessMmResult(MidiInWinApi.midiInOpen(out midiIn, uDeviceID, _callbacks[uDeviceID], IntPtr.Zero, MidiWinApi.CallbackFunction));
+                },
                 () => MidiInLinuxApi.Subscribe(out midiIn, uDeviceID, callbacks));
 
             lphMidiIn = midiIn;
